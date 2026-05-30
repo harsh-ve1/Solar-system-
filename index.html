@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Engine V5 - Cinematic Edition</title>
+    <title>Cosmic Engine V7 - Multiverse & Relativity</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
@@ -19,318 +19,535 @@
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Consolas', monospace; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Consolas', monospace; color: #00ffcc; }
         canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
 
+        /* V7 Cinematic HUD */
+        #hud-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
+            background: 
+                linear-gradient(rgba(0, 20, 10, 0.1) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                radial-gradient(circle, transparent 60%, rgba(0, 10, 20, 0.8) 100%);
+            background-size: 100% 4px, 100% 100%;
+        }
+
+        .hud-panel {
+            position: absolute; background: rgba(0, 15, 20, 0.7); border: 1px solid rgba(0, 255, 200, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 200, 0.1) inset; backdrop-filter: blur(10px); padding: 20px;
+        }
+        
+        #top-nav { top: 20px; left: 50%; transform: translateX(-50%); width: 600px; text-align: center; border-radius: 0 0 20px 20px; border-top: none; }
+        #left-telemetry { top: 50%; left: 20px; transform: translateY(-50%); width: 250px; border-left: 4px solid #00ffcc; }
+        #right-sensors { top: 50%; right: 20px; transform: translateY(-50%); width: 250px; border-right: 4px solid #ff3366; }
+        #bottom-console { bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; }
+
+        h1 { font-size: 1.5rem; letter-spacing: 8px; text-transform: uppercase; margin-bottom: 5px; text-shadow: 0 0 10px #00ffcc; }
+        h2 { font-size: 0.9rem; color: #aaa; letter-spacing: 2px; margin-bottom: 15px; border-bottom: 1px solid rgba(0,255,200,0.2); padding-bottom: 5px;}
+        
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.8rem; }
+        .label { color: #668877; }
+        .val { color: #fff; font-weight: bold; text-shadow: 0 0 5px rgba(255,255,255,0.5); }
+        .alert { color: #ff3366; animation: flash 1s infinite; }
+        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* Targeting Reticle */
+        .reticle {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 150px; height: 150px; border-radius: 50%; border: 1px dashed rgba(0, 255, 200, 0.4);
+            animation: rotateSpin 20s linear infinite;
+        }
+        .reticle::before {
+            content: ''; position: absolute; top: -10px; left: 74px; width: 2px; height: 170px; background: rgba(0, 255, 200, 0.2);
+        }
+        .reticle::after {
+            content: ''; position: absolute; left: -10px; top: 74px; height: 2px; width: 170px; background: rgba(0, 255, 200, 0.2);
+        }
+        @keyframes rotateSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+        /* AI Camera Container */
+        #webcam-wrapper {
+            width: 100%; height: 140px; border: 1px solid #ff3366; margin-top: 15px; position: relative;
+            background: #000; overflow: hidden; transform: scaleX(-1);
+        }
+        #webcam-wrapper::after { content: 'NEURAL LINK ACTIVE'; position: absolute; bottom: 5px; right: 5px; font-size: 0.6rem; color: #ff3366; transform: scaleX(-1); }
+        video { width: 100%; height: 100%; object-fit: cover; opacity: 0.4; filter: contrast(150%) brightness(0.8); }
+
         #loader {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle at center, #0a0a1a 0%, #000 100%); z-index: 100; 
-            display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            color: #fff; transition: opacity 1.5s ease-out;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 1.5s;
         }
-        .core { width: 60px; height: 60px; border-radius: 50%; border: 2px solid transparent; border-top-color: #ff5500; border-bottom-color: #00eeff; animation: spin 1s linear infinite; box-shadow: 0 0 30px rgba(255, 85, 0, 0.5); }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        #hud {
-            position: absolute; bottom: 30px; left: 30px; z-index: 10; color: #fff;
-            background: rgba(0, 5, 10, 0.7); padding: 25px; border-radius: 12px;
-            border: 1px solid rgba(0, 238, 255, 0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px); pointer-events: none;
-        }
-        h1 { font-size: 1.2rem; letter-spacing: 4px; color: #00eeff; text-transform: uppercase; margin-bottom: 15px; }
-        .data-row { font-size: 0.85rem; color: #8899aa; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 20px;}
-        .highlight { color: #fff; font-weight: bold; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
-        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00ff00; box-shadow: 0 0 10px #00ff00; margin-right: 8px; animation: pulse 2s infinite; }
-        @keyframes pulse { 50% { opacity: 0.4; } }
-
-        #webcam-container {
-            position: absolute; top: 30px; right: 30px; z-index: 10; width: 140px; height: 105px; 
-            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; overflow: hidden; transform: scaleX(-1);
-        }
-        video { width: 100%; height: 100%; object-fit: cover; opacity: 0.3; filter: grayscale(100%); }
+        .quantum-spinner { width: 80px; height: 80px; border: 2px solid transparent; border-top: 2px solid #ff3366; border-right: 2px solid #00ffcc; border-radius: 50%; animation: qspin 0.8s linear infinite; }
+        @keyframes qspin { to { transform: rotate(360deg) scale(1.1); } }
+        
+        #audio-prompt { position: absolute; z-index: 2000; background: rgba(0,0,0,0.9); width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        button { background: transparent; border: 2px solid #00ffcc; color: #00ffcc; padding: 15px 40px; font-size: 1.2rem; cursor: pointer; text-transform: uppercase; letter-spacing: 3px; font-family: 'Consolas'; transition: 0.3s; margin-top: 20px;}
+        button:hover { background: #00ffcc; color: #000; box-shadow: 0 0 20px #00ffcc; }
     </style>
 </head>
 <body>
 
-    <div id="loader">
-        <div class="core"></div>
-        <h2 style="margin-top: 25px; font-weight: 300; letter-spacing: 5px; font-size: 1rem;">INITIALIZING QUANTUM ENGINE</h2>
+    <div id="audio-prompt">
+        <h1 style="font-size: 2rem;">V7 MULTIVERSE ENGINE</h1>
+        <p style="color: #88aadd; margin-top: 10px;">Requires Audio & Camera Permissions</p>
+        <button id="start-btn">INITIALIZE IGNITION</button>
     </div>
 
-    <div id="hud">
-        <h1>System Status</h1>
-        <div class="data-row"><span>AI Uplink:</span> <span class="highlight"><span class="status-dot"></span><span id="track-status">Scanning...</span></span></div>
-        <div class="data-row"><span>Camera Mode:</span> <span id="cam-mode" class="highlight">Cinematic Auto</span></div>
-        <div class="data-row" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-            <span>1 Hand: Orbital Override</span><br>
-            <span>2 Hands: Quantum Zoom</span>
+    <div id="loader" style="display:none;">
+        <div class="quantum-spinner"></div>
+        <div style="margin-top: 25px; color:#fff; letter-spacing: 5px;">SYNTHESIZING UNIVERSE...</div>
+    </div>
+
+    <div id="hud-container">
+        <div class="hud-panel" id="top-nav">
+            <h1>Relativity Core</h1>
+            <div class="data-row" style="justify-content: center; gap: 40px; font-size: 1rem;">
+                <span>DIMENSION: <span class="val" id="dim-val">ALPHA-PRIME</span></span>
+                <span>STATUS: <span class="val" id="status-val" style="color:#00ff00;">STABLE</span></span>
+            </div>
         </div>
-    </div>
 
-    <div id="webcam-container">
-        <video id="webcam" autoplay playsinline></video>
+        <div class="hud-panel" id="left-telemetry">
+            <h2>ORBITAL MECHANICS</h2>
+            <div class="data-row"><span class="label">Time Dilation:</span> <span class="val" id="time-dil">1.000x</span></div>
+            <div class="data-row"><span class="label">Grav. Pull:</span> <span class="val" id="grav-pull">0.05 G</span></div>
+            <div class="data-row"><span class="label">Cam Radius:</span> <span class="val" id="cam-rad">1800 AU</span></div>
+            <div class="data-row"><span class="label">Velocity:</span> <span class="val" id="vel">24.5 km/s</span></div>
+            <div style="margin-top:20px; border-top: 1px solid rgba(0,255,200,0.2); padding-top: 15px;">
+                <span class="label" style="display:block; margin-bottom:5px;">N-Body Stress Test:</span>
+                <div style="width:100%; height:8px; background:#111; border:1px solid #333;"><div id="nbody-stress" style="width:45%; height:100%; background:#00ffcc;"></div></div>
+            </div>
+        </div>
+
+        <div class="reticle"></div>
+
+        <div class="hud-panel" id="right-sensors">
+            <h2>NEURAL SENSORS</h2>
+            <div class="data-row"><span class="label">Hand Tracking:</span> <span class="val" id="ai-track" class="alert">OFFLINE</span></div>
+            <div class="data-row"><span class="label">Gesture Mode:</span> <span class="val" id="ai-mode">AUTO-TOUR</span></div>
+            <div id="webcam-wrapper"><video id="webcam" autoplay playsinline></video></div>
+            <div style="font-size:0.65rem; color:#557766; margin-top:10px;">
+                > 1 HAND: PAN & TILT <br> > 2 HANDS: QUANTUM WARP (PINCH)
+            </div>
+        </div>
     </div>
 
     <script>
         // ==========================================
-        // 1. ENGINE SETUP (Logarithmic Depth for massive scale)
+        // 0. PROCEDURAL AUDIO SYNTHESIZER (WEB AUDIO API)
+        // ==========================================
+        let audioCtx, masterGain, droneOsc, noiseNode, lfo;
+        
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.4;
+            masterGain.connect(audioCtx.destination);
+
+            // Deep Space Drone (Low Frequency Oscillator)
+            droneOsc = audioCtx.createOscillator();
+            droneOsc.type = 'sine';
+            droneOsc.frequency.value = 45; // Deep bass
+            
+            // Sub-harmonic distortion
+            const distortion = audioCtx.createWaveShaper();
+            distortion.curve = makeDistortionCurve(50);
+            distortion.oversample = '4x';
+            
+            droneOsc.connect(distortion);
+            distortion.connect(masterGain);
+            droneOsc.start();
+
+            // Cosmic Wind (Procedural White Noise)
+            const bufferSize = audioCtx.sampleRate * 2;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) { output[i] = Math.random() * 2 - 1; }
+            
+            noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = noiseBuffer;
+            noiseNode.loop = true;
+            
+            const bandpass = audioCtx.createBiquadFilter();
+            bandpass.type = 'bandpass';
+            bandpass.frequency.value = 200;
+            
+            lfo = audioCtx.createOscillator(); // LFO to modulate wind frequency
+            lfo.frequency.value = 0.1;
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 150;
+            lfo.connect(lfoGain);
+            lfoGain.connect(bandpass.frequency);
+            lfo.start();
+
+            noiseNode.connect(bandpass);
+            const noiseVol = audioCtx.createGain();
+            noiseVol.gain.value = 0.1;
+            bandpass.connect(noiseVol);
+            noiseVol.connect(masterGain);
+            noiseNode.start();
+        }
+
+        function makeDistortionCurve(amount) {
+            const k = typeof amount === 'number' ? amount : 50,
+                n_samples = 44100, curve = new Float32Array(n_samples), deg = Math.PI / 180;
+            for (let i = 0; i < n_samples; ++i ) {
+                const x = i * 2 / n_samples - 1;
+                curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
+            }
+            return curve;
+        }
+
+        // Modulate audio based on camera distance (Time Dilation effect)
+        function updateAudioDynamics(distance, isWarping) {
+            if(!audioCtx) return;
+            if(isWarping) {
+                droneOsc.frequency.setTargetAtTime(150, audioCtx.currentTime, 0.5);
+                masterGain.gain.setTargetAtTime(0.8, audioCtx.currentTime, 0.5);
+            } else {
+                // Pitch drops as you get closer to black hole (gravity well)
+                const pitch = Math.max(20, Math.min(60, distance / 30));
+                droneOsc.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 1.0);
+                masterGain.gain.setTargetAtTime(0.4, audioCtx.currentTime, 1.0);
+            }
+        }
+
+        // ==========================================
+        // 1. ENGINE, RENDERER & POST-PROCESSING
         // ==========================================
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x010103);
-        scene.fog = new THREE.FogExp2(0x010103, 0.00015); 
+        scene.fog = new THREE.FogExp2(0x000205, 0.00008); 
 
-        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 50000);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100000);
         
-        const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: "high-performance" });
+        const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", alpha: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.3;
+        renderer.toneMappingExposure = 1.4;
         document.body.appendChild(renderer.domElement);
 
-        // ==========================================
-        // 2. POST-PROCESSING (Cinematic Glow)
-        // ==========================================
+        // Custom Post-Processing for Sci-Fi effects
         const composer = new THREE.EffectComposer(renderer);
-        composer.addPass(new THREE.RenderPass(scene, camera));
+        const renderPass = new THREE.RenderPass(scene, camera);
+        composer.addPass(renderPass);
         
-        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 2.0, 0.6, 0.1);
+        const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 2.2, 0.6, 0.15);
         composer.addPass(bloomPass);
 
-        // ==========================================
-        // 3. GLSL SHADERS (The Magic Sauce)
-        // ==========================================
-        // A. Custom Sun Shader (Simulates boiling plasma without images)
-        const sunVertexShader = `
-            varying vec2 vUv;
-            varying vec3 vNormal;
-            void main() {
-                vUv = uv;
-                vNormal = normalize(normalMatrix * normal);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `;
-        const sunFragmentShader = `
-            uniform float time;
-            varying vec2 vUv;
-            varying vec3 vNormal;
-            
-            // Basic noise function
-            float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
-            
-            void main() {
-                vec2 pos = vUv * 10.0;
-                float n = random(floor(pos) + time * 0.1);
-                
-                // Color gradient (Yellow to Deep Orange)
-                vec3 color1 = vec3(1.0, 0.9, 0.4);
-                vec3 color2 = vec3(1.0, 0.3, 0.0);
-                vec3 finalColor = mix(color2, color1, n + vNormal.z * 0.5);
-                
-                // Intense brightness for bloom
-                gl_FragColor = vec4(finalColor * 2.5, 1.0);
-            }
-        `;
-
-        // B. Atmosphere Shader (Glowing edge around planets like Earth)
-        const atmosphereVertex = `
-            varying vec3 vNormal;
-            void main() {
-                vNormal = normalize(normalMatrix * normal);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `;
-        const atmosphereFragment = `
-            uniform vec3 glowColor;
-            varying vec3 vNormal;
-            void main() {
-                float intensity = pow(0.65 - dot(vNormal, vec3(0, 0, 1.0)), 4.0);
-                gl_FragColor = vec4(glowColor, 1.0) * intensity;
-            }
-        `;
+        // Chromatic Aberration & CRT Scanline Shader
+        const crtShader = {
+            uniforms: {
+                "tDiffuse": { value: null },
+                "time": { value: 0.0 },
+                "warpAmount": { value: 0.0 }
+            },
+            vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+            fragmentShader: `
+                uniform sampler2D tDiffuse; uniform float time; uniform float warpAmount; varying vec2 vUv;
+                void main() {
+                    vec2 uv = vUv;
+                    // Chromatic aberration based on warp
+                    float shift = warpAmount * 0.02;
+                    vec4 r = texture2D(tDiffuse, uv + vec2(shift, 0.0));
+                    vec4 g = texture2D(tDiffuse, uv);
+                    vec4 b = texture2D(tDiffuse, uv - vec2(shift, 0.0));
+                    vec4 color = vec4(r.r, g.g, b.b, 1.0);
+                    
+                    // CRT Scanlines
+                    float scanline = sin(uv.y * 800.0) * 0.04;
+                    color.rgb -= scanline;
+                    
+                    // Vignette
+                    float dist = distance(uv, vec2(0.5));
+                    color.rgb *= smoothstep(0.8, 0.2, dist * (1.0 + warpAmount));
+                    
+                    gl_FragColor = color;
+                }
+            `
+        };
+        const crtPass = new THREE.ShaderPass(crtShader);
+        composer.addPass(crtPass);
 
         // ==========================================
-        // 4. CELESTIAL CONSTRUCTION
+        // 2. PROCEDURAL SHADERS (VOLUMETRICS & STARS)
         // ==========================================
-        // Ambient Star Light
-        scene.add(new THREE.AmbientLight(0x1a1a1a));
+        
+        // A. Gargantua Black Hole (Gravitational Lensing Illusion)
+        const bhGroup = new THREE.Group();
+        bhGroup.position.set(-2000, 400, -3000);
+        
+        const eventHorizon = new THREE.Mesh(
+            new THREE.SphereGeometry(180, 64, 64),
+            new THREE.MeshBasicMaterial({ color: 0x000000 })
+        );
+        bhGroup.add(eventHorizon);
 
-        // Point Light from Sun
-        const sunLight = new THREE.PointLight(0xffeedd, 8, 8000, 0.02);
-        scene.add(sunLight);
+        const accretionDiskMat = new THREE.ShaderMaterial({
+            uniforms: { time: { value: 0 } },
+            side: THREE.DoubleSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+            vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+            fragmentShader: `
+                uniform float time; varying vec2 vUv;
+                void main() {
+                    vec2 p = vUv * 2.0 - 1.0; float r = length(p); float a = atan(p.y, p.x);
+                    if(r > 1.0 || r < 0.3) discard;
+                    
+                    float flow = sin(r * 20.0 - time * 5.0 + a * 3.0) * 0.5 + 0.5;
+                    float glow = smoothstep(1.0, 0.3, r) * smoothstep(0.3, 0.5, r);
+                    vec3 col = mix(vec3(1.0, 0.3, 0.0), vec3(0.2, 0.5, 1.0), flow * r);
+                    
+                    gl_FragColor = vec4(col * glow * 3.0, glow);
+                }
+            `
+        });
+        const disk1 = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), accretionDiskMat);
+        disk1.rotation.x = Math.PI / 1.7;
+        bhGroup.add(disk1);
+        
+        // Bending light ring (Einstein Ring)
+        const disk2 = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), accretionDiskMat);
+        disk2.rotation.x = Math.PI / 2.2;
+        disk2.rotation.y = Math.PI / 4;
+        bhGroup.add(disk2);
+        
+        scene.add(bhGroup);
 
-        // Build Sun using Custom Shader
+        // B. Dynamic Star Plasma Shader
         const sunUniforms = { time: { value: 0.0 } };
         const sunMat = new THREE.ShaderMaterial({
             uniforms: sunUniforms,
-            vertexShader: sunVertexShader,
-            fragmentShader: sunFragmentShader
+            vertexShader: `varying vec2 vUv; varying vec3 vNormal; void main() { vUv = uv; vNormal = normal; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+            fragmentShader: `
+                uniform float time; varying vec2 vUv; varying vec3 vNormal;
+                // Simplex noise approximation
+                float rand(vec2 n) { return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453); }
+                void main() {
+                    float noise = rand(floor(vUv * 50.0 + time));
+                    float edgeGlow = pow(1.0 - dot(vNormal, vec3(0,0,1)), 2.0);
+                    vec3 baseCol = mix(vec3(1.0, 0.6, 0.1), vec3(1.0, 0.9, 0.5), noise);
+                    gl_FragColor = vec4(baseCol + vec3(edgeGlow), 1.0);
+                }
+            `
         });
-        const sun = new THREE.Mesh(new THREE.SphereGeometry(60, 64, 64), sunMat);
-        scene.add(sun);
+        
+        const mainStar = new THREE.Mesh(new THREE.SphereGeometry(90, 64, 64), sunMat);
+        scene.add(mainStar);
+        
+        const sunLight = new THREE.PointLight(0xffddaa, 10, 20000, 0.02);
+        scene.add(sunLight);
+        scene.add(new THREE.AmbientLight(0x0a0a1a));
 
-        // Procedural Texture Generator (Creates Bump Maps & Diffuse Maps on the fly)
-        function createPlanetTexture(baseHex, noiseHex, createBump = false) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1024; canvas.height = 512;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = baseHex;
-            ctx.fillRect(0, 0, 1024, 512);
-            for (let i = 0; i < 8000; i++) {
-                ctx.fillStyle = createBump ? `rgba(255,255,255,${Math.random()*0.3})` : noiseHex;
-                ctx.globalAlpha = Math.random() * 0.3;
-                ctx.beginPath();
-                ctx.arc(Math.random() * 1024, Math.random() * 512, Math.random() * 15, 0, Math.PI * 2);
-                ctx.fill();
+        // ==========================================
+        // 3. N-BODY GRAVITY SIMULATION (ASTEROID CLUSTER)
+        // ==========================================
+        const nBodyCount = 400; // Hardcore physics computation
+        const nBodyGeo = new THREE.IcosahedronGeometry(2, 0);
+        const nBodyMat = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.9 });
+        const nBodyMesh = new THREE.InstancedMesh(nBodyGeo, nBodyMat, nBodyCount);
+        scene.add(nBodyMesh);
+
+        // Physics State Arrays
+        const bodies = [];
+        for(let i=0; i<nBodyCount; i++) {
+            bodies.push({
+                pos: new THREE.Vector3((Math.random()-0.5)*800, (Math.random()-0.5)*100, (Math.random()-0.5)*800).add(new THREE.Vector3(1200, 0, 1200)),
+                vel: new THREE.Vector3((Math.random()-0.5)*2, (Math.random()-0.5)*0.5, (Math.random()-0.5)*2),
+                mass: Math.random() * 5 + 1
+            });
+        }
+        const gConst = 0.5; // Gravitational constant for sim
+
+        // ==========================================
+        // 4. PLANETARY SYSTEM
+        // ==========================================
+        function createTex(colorHex, noiseHex) {
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 256;
+            const ctx = canvas.getContext('2d'); ctx.fillStyle = colorHex; ctx.fillRect(0,0,512,256);
+            for(let i=0; i<3000; i++) {
+                ctx.fillStyle = noiseHex; ctx.globalAlpha = Math.random() * 0.15;
+                ctx.fillRect(Math.random()*512, Math.random()*256, Math.random()*10, Math.random()*10);
             }
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-            return texture;
+            return new THREE.CanvasTexture(canvas);
         }
 
-        // Planetary Data (Adding Eccentricity for elliptical orbits)
         const planets = [];
-        const planetData = [
-            { name: "Mercury", size: 3.5, a: 140, b: 130, speed: 0.02, col: "#666", nCol: "#333", metal: 0.8, rough: 0.4 },
-            { name: "Venus", size: 8.5, a: 220, b: 215, speed: 0.012, col: "#e3bb76", nCol: "#a67c00", metal: 0.2, rough: 0.9 },
-            { name: "Earth", size: 9.5, a: 320, b: 310, speed: 0.009, col: "#0b3d91", nCol: "#4ca832", metal: 0.3, rough: 0.7, atmo: new THREE.Color(0x4477ff) },
-            { name: "Mars", size: 5.5, a: 420, b: 390, speed: 0.007, col: "#c1440e", nCol: "#5c1f04", metal: 0.4, rough: 0.8 },
-            { name: "Jupiter", size: 28, a: 650, b: 640, speed: 0.003, col: "#c88b3a", nCol: "#a67c00", metal: 0.1, rough: 0.9 },
-            { name: "Saturn", size: 22, a: 950, b: 920, speed: 0.002, col: "#f4e2bb", nCol: "#b5a37f", metal: 0.1, rough: 0.8, hasRings: true },
+        const pData = [
+            { s: 5, a: 250, b: 240, sp: 0.012, c: "#777", n: "#333" }, // P1
+            { s: 12, a: 450, b: 430, sp: 0.008, c: "#1b4d82", n: "#4caf50" }, // P2 Habitable
+            { s: 8, a: 650, b: 620, sp: 0.006, c: "#b34700", n: "#662200" }, // P3
+            { s: 35, a: 1100, b: 1050, sp: 0.003, c: "#d4a373", n: "#8a5a44", rings: true } // P4 Gas Giant
         ];
 
-        planetData.forEach(data => {
-            const pivot = new THREE.Group();
-            scene.add(pivot);
-
-            // Using PBR (Physically Based Rendering) Material
-            const tex = createPlanetTexture(data.col, data.nCol, false);
-            const bump = createPlanetTexture("#000", "#fff", true);
-            const mat = new THREE.MeshStandardMaterial({ 
-                map: tex, bumpMap: bump, bumpScale: 0.5, 
-                metalness: data.metal, roughness: data.rough 
-            });
-            
-            const mesh = new THREE.Mesh(new THREE.SphereGeometry(data.size, 64, 64), mat);
-            pivot.add(mesh);
-
-            // Add Atmospheric Shader if Earth
-            if (data.atmo) {
-                const atmoMat = new THREE.ShaderMaterial({
-                    uniforms: { glowColor: { value: data.atmo } },
-                    vertexShader: atmosphereVertex,
-                    fragmentShader: atmosphereFragment,
-                    side: THREE.BackSide, blending: THREE.AdditiveBlending, transparent: true
-                });
-                const atmoMesh = new THREE.Mesh(new THREE.SphereGeometry(data.size * 1.2, 64, 64), atmoMat);
-                mesh.add(atmoMesh);
+        pData.forEach(d => {
+            const mat = new THREE.MeshStandardMaterial({ map: createTex(d.c, d.n), roughness: 0.7, metalness: 0.2 });
+            const mesh = new THREE.Mesh(new THREE.SphereGeometry(d.s, 64, 64), mat);
+            if(d.rings) {
+                const ring = new THREE.Mesh(new THREE.RingGeometry(d.s+15, d.s+60, 64), new THREE.MeshBasicMaterial({ map: createTex("#e9c46a", "#264653"), side: THREE.DoubleSide, transparent:true, opacity:0.7}));
+                ring.rotation.x = Math.PI / 1.8; mesh.add(ring);
             }
-
-            // Saturn Rings (Advanced geometry)
-            if (data.hasRings) {
-                const ringGeo = new THREE.RingGeometry(data.size + 10, data.size + 40, 128);
-                // UV mapping fix for rings
-                const pos = ringGeo.attributes.position;
-                const v3 = new THREE.Vector3();
-                for (let i = 0; i < pos.count; i++){
-                    v3.fromBufferAttribute(pos, i);
-                    ringGeo.attributes.uv.setXY(i, v3.length() < (data.size+25) ? 0 : 1, 1);
-                }
-                const ringMat = new THREE.MeshStandardMaterial({ 
-                    map: createPlanetTexture("#b5a37f", "#555"), side: THREE.DoubleSide, transparent: true, opacity: 0.8 
-                });
-                const ring = new THREE.Mesh(ringGeo, ringMat);
-                ring.rotation.x = Math.PI / 1.9;
-                mesh.add(ring);
-            }
-
-            // Elliptical Orbit Trail Calculation
-            const trailPts = [];
-            for (let i = 0; i <= 128; i++) {
-                const theta = (i / 128) * Math.PI * 2;
-                trailPts.push(new THREE.Vector3(Math.cos(theta) * data.a, 0, Math.sin(theta) * data.b));
-            }
-            const trail = new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints(trailPts),
-                new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 })
-            );
-            scene.add(trail);
-
-            planets.push({ mesh, speed: data.speed, a: data.a, b: data.b, angle: Math.random() * Math.PI * 2 });
+            scene.add(mesh);
+            planets.push({ mesh: mesh, a: d.a, b: d.b, sp: d.sp, angle: Math.random() * Math.PI * 2 });
         });
 
-        // ==========================================
-        // 5. DEEP SPACE GALAXY & NEBULA
-        // ==========================================
+        // 20,000 Particle Starfield
         const starsGeo = new THREE.BufferGeometry();
-        const starsPos = new Float32Array(15000 * 3);
-        const starsCol = new Float32Array(15000 * 3);
-        
-        for(let i=0; i<15000; i++) {
-            const r = 2000 + Math.random() * 8000;
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos((Math.random() * 2) - 1);
-            
-            starsPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
-            starsPos[i*3+1] = r * Math.cos(phi) * 0.3; // Flatten galaxy
-            starsPos[i*3+2] = r * Math.sin(phi) * Math.sin(theta);
-
-            // Blue/Pink Nebula Colors
-            const mix = Math.random();
-            starsCol[i*3] = mix > 0.5 ? 0.2 : 0.8; // R
-            starsCol[i*3+1] = 0.4;                 // G
-            starsCol[i*3+2] = mix > 0.5 ? 0.9 : 0.4; // B
+        const starsPos = new Float32Array(20000 * 3);
+        const starsCol = new Float32Array(20000 * 3);
+        for(let i=0; i<20000*3; i+=3) {
+            const r = 3000 + Math.random() * 12000;
+            const th = Math.random() * Math.PI * 2, ph = Math.acos((Math.random() * 2) - 1);
+            starsPos[i] = r * Math.sin(ph) * Math.cos(th);
+            starsPos[i+1] = r * Math.cos(ph) * 0.5; 
+            starsPos[i+2] = r * Math.sin(ph) * Math.sin(th);
+            starsCol[i] = Math.random(); starsCol[i+1] = 0.5+Math.random()*0.5; starsCol[i+2] = 1.0;
         }
         starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
         starsGeo.setAttribute('color', new THREE.BufferAttribute(starsCol, 3));
-        const stars = new THREE.Points(starsGeo, new THREE.PointsMaterial({ size: 4, vertexColors: true, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending }));
-        scene.add(stars);
+        const starfield = new THREE.Points(starsGeo, new THREE.PointsMaterial({ size: 3, vertexColors: true, transparent: true, opacity: 0.6 }));
+        scene.add(starfield);
 
         // ==========================================
-        // 6. CAMERA & PHYSICS LOOP
+        // 5. CAMERA KINEMATICS & WORMHOLE LOGIC
         // ==========================================
-        let camRadius = 1200, camTheta = Math.PI / 4, camPhi = Math.PI / 2.5;
-        let targetCamRadius = 1200, targetCamTheta = Math.PI / 4, targetCamPhi = Math.PI / 2.5;
+        let camRadius = 2500, camTheta = Math.PI / 4, camPhi = Math.PI / 2.5;
+        let targetCamRadius = 2500, targetCamTheta = Math.PI / 4, targetCamPhi = Math.PI / 2.5;
+        let isManualControl = false, autoTourAngle = 0;
         
-        let isManualControl = false;
-        let autoTourAngle = 0;
+        let inWormhole = false;
+        let currentDimension = 0; // 0 = Alpha-Prime, 1 = Binary System
+        let warpProgress = 0;
+
         const clock = new THREE.Clock();
+        const dummy = new THREE.Object3D();
+
+        // UI Elements
+        const elTime = document.getElementById('time-dil');
+        const elGrav = document.getElementById('grav-pull');
+        const elRad = document.getElementById('cam-rad');
+        const elDim = document.getElementById('dim-val');
+        const elStatus = document.getElementById('status-val');
 
         function animate() {
             requestAnimationFrame(animate);
-            const delta = clock.getDelta();
+            const delta = Math.min(clock.getDelta(), 0.1); // Cap delta to prevent physics explosions
             const elapsed = clock.getElapsedTime();
 
-            // Update Sun Shader Time
+            // Shaders Update
             sunUniforms.time.value = elapsed;
-            sun.rotation.y += 0.002;
-            stars.rotation.y -= 0.0001;
+            accretionDiskMat.uniforms.time.value = elapsed;
+            crtShader.uniforms.time.value = elapsed;
 
-            // Keplerian Orbital Mechanics
+            // Simple Orbits
             planets.forEach(p => {
-                p.angle += p.speed * 60 * delta;
-                // Elliptical Math
-                p.mesh.position.x = Math.cos(p.angle) * p.a;
-                p.mesh.position.z = Math.sin(p.angle) * p.b;
-                p.mesh.rotation.y += p.speed * 100 * delta; // Self spin
+                p.angle += p.sp * 60 * delta;
+                p.mesh.position.set(Math.cos(p.angle)*p.a, 0, Math.sin(p.angle)*p.b);
+                p.mesh.rotation.y += p.sp * 100 * delta;
             });
 
-            // Camera AI (Auto-Tour vs Manual)
+            // Advanced N-Body Physics Solver (O(N^2) optimized approximation)
+            for(let i=0; i<nBodyCount; i++) {
+                const b1 = bodies[i];
+                // Gravitational pull from Main Star
+                const starDist = b1.pos.lengthSq();
+                const starForce = b1.pos.clone().normalize().multiplyScalar(-100000 / (starDist + 100));
+                b1.vel.add(starForce.multiplyScalar(delta));
+
+                // Pull from nearby bodies (Simplified)
+                for(let j=0; j<10; j++) { // Only check a few to save CPU
+                    const rndIdx = Math.floor(Math.random() * nBodyCount);
+                    if(i === rndIdx) continue;
+                    const b2 = bodies[rndIdx];
+                    const dVec = new THREE.Vector3().subVectors(b2.pos, b1.pos);
+                    const distSq = dVec.lengthSq();
+                    if(distSq > 10 && distSq < 10000) {
+                        const force = (gConst * b1.mass * b2.mass) / distSq;
+                        b1.vel.add(dVec.normalize().multiplyScalar(force * delta));
+                    }
+                }
+                b1.pos.add(b1.vel.clone().multiplyScalar(delta));
+                
+                dummy.position.copy(b1.pos);
+                dummy.rotation.x += b1.vel.x * delta;
+                dummy.rotation.y += b1.vel.y * delta;
+                dummy.updateMatrix();
+                nBodyMesh.setMatrixAt(i, dummy.matrix);
+            }
+            nBodyMesh.instanceMatrix.needsUpdate = true;
+
+            // Camera Damping
             if (!isManualControl) {
                 autoTourAngle += 0.001;
                 targetCamTheta = autoTourAngle;
-                targetCamPhi = (Math.sin(elapsed * 0.2) * 0.3) + Math.PI/2.5; // Smooth bobbing
+                targetCamPhi = (Math.sin(elapsed * 0.15) * 0.2) + Math.PI/2.5;
             }
 
-            // Smooth Damping (Lerp)
-            camTheta += (targetCamTheta - camTheta) * 0.05;
-            camPhi += (targetCamPhi - camPhi) * 0.05;
+            camTheta += (targetCamTheta - camTheta) * 0.06;
+            camPhi += (targetCamPhi - camPhi) * 0.06;
             camRadius += (targetCamRadius - camRadius) * 0.08;
 
-            camera.position.x = camRadius * Math.sin(camPhi) * Math.cos(camTheta);
-            camera.position.y = camRadius * Math.cos(camPhi);
-            camera.position.z = camRadius * Math.sin(camPhi) * Math.sin(camTheta);
+            camera.position.set(
+                camRadius * Math.sin(camPhi) * Math.cos(camTheta),
+                camRadius * Math.cos(camPhi),
+                camRadius * Math.sin(camPhi) * Math.sin(camTheta)
+            );
             camera.lookAt(0, 0, 0);
+
+            // Wormhole / Relativity Logic
+            const distToBlackHole = camera.position.distanceTo(bhGroup.position);
+            
+            // Calculate Time Dilation (Lorentz factor approximation based on gravity well)
+            const dilation = Math.max(1.0, 10000 / (distToBlackHole - 170));
+            
+            if (Math.floor(elapsed * 10) % 3 === 0) {
+                elTime.innerText = dilation > 10 ? "> MAXIMUM" : dilation.toFixed(3) + "x";
+                elGrav.innerText = (20000 / distToBlackHole).toFixed(2) + " G";
+                elRad.innerText = (camRadius / 100).toFixed(1) + " AU";
+            }
+
+            // Trigger Warp if too close to Event Horizon
+            if (distToBlackHole < 300 && !inWormhole) {
+                inWormhole = true;
+                elStatus.innerText = "WARPING SPACE";
+                elStatus.style.color = "#ff3366";
+                document.getElementById('hud-container').style.animation = "flash 0.1s infinite";
+            }
+
+            if (inWormhole) {
+                warpProgress += delta;
+                crtShader.uniforms.warpAmount.value = warpProgress * 5.0; // Intense distortion
+                updateAudioDynamics(0, true);
+                
+                if (warpProgress > 3.0) {
+                    // Execute Dimension Swap
+                    inWormhole = false;
+                    warpProgress = 0;
+                    currentDimension = currentDimension === 0 ? 1 : 0;
+                    
+                    // Reset UI & Shader
+                    crtShader.uniforms.warpAmount.value = 0.0;
+                    document.getElementById('hud-container').style.animation = "none";
+                    elStatus.innerText = "STABLE";
+                    elStatus.style.color = "#00ff00";
+                    
+                    if (currentDimension === 1) {
+                        elDim.innerText = "BINARY-OMEGA";
+                        // Change Scene Colors
+                        sunMat.fragmentShader = sunMat.fragmentShader.replace('vec3(1.0, 0.6, 0.1)', 'vec3(0.1, 0.5, 1.0)').replace('vec3(1.0, 0.9, 0.5)', 'vec3(0.8, 0.9, 1.0)');
+                        sunMat.needsUpdate = true;
+                        sunLight.color.setHex(0xaaddff);
+                        scene.fog.color.setHex(0x050011);
+                        bhGroup.visible = false; // Black hole left behind
+                    } else {
+                        elDim.innerText = "ALPHA-PRIME";
+                        location.reload(); // Simple way to reset everything for this demo
+                    }
+                    
+                    targetCamRadius = 3000; // Push back out
+                }
+            } else {
+                crtShader.uniforms.warpAmount.value = 0.0;
+                updateAudioDynamics(distToBlackHole, false);
+            }
 
             composer.render();
         }
@@ -343,65 +560,69 @@
         });
 
         // ==========================================
-        // 7. MEDIAPIPE GESTURE INTEGRATION
+        // 6. NEURAL AI HAND TRACKING (MediaPipe)
         // ==========================================
         const videoElement = document.getElementById('webcam');
-        const statusEl = document.getElementById('track-status');
-        const modeEl = document.getElementById('cam-mode');
-        const loader = document.getElementById('loader');
-
-        let initDone = false;
+        const aiTrack = document.getElementById('ai-track');
+        const aiMode = document.getElementById('ai-mode');
+        
         let lastDetectionTime = 0;
 
         function onResults(results) {
-            if (!initDone) {
-                loader.style.opacity = '0';
-                setTimeout(() => loader.style.display = 'none', 1500);
-                initDone = true;
-                animate(); // Start animation once loaded
-            }
-
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 lastDetectionTime = Date.now();
                 isManualControl = true;
-                statusEl.innerText = `ACTIVE (${results.multiHandLandmarks.length})`;
-                modeEl.innerText = "Manual Override";
-                modeEl.style.color = "#ff5500";
+                aiTrack.innerText = `LOCKED [${results.multiHandLandmarks.length}]`;
+                aiTrack.style.color = "#00ffcc";
+                aiMode.innerText = "MANUAL OVERRIDE";
 
                 if (results.multiHandLandmarks.length === 1) {
                     const h = results.multiHandLandmarks[0][0]; 
-                    targetCamTheta = (1 - h.x) * Math.PI * 3; 
-                    targetCamPhi = Math.max(0.1, Math.min(Math.PI - 0.1, h.y * Math.PI)); 
+                    targetCamTheta = (1 - h.x) * Math.PI * 4; 
+                    targetCamPhi = Math.max(0.05, Math.min(Math.PI - 0.05, h.y * Math.PI)); 
                 } 
                 else if (results.multiHandLandmarks.length === 2) {
-                    const h1 = results.multiHandLandmarks[0][0]; 
-                    const h2 = results.multiHandLandmarks[1][0]; 
+                    const h1 = results.multiHandLandmarks[0][0], h2 = results.multiHandLandmarks[1][0]; 
                     const dist = Math.sqrt(Math.pow(h1.x - h2.x, 2) + Math.pow(h1.y - h2.y, 2));
-                    targetCamRadius = 3000 - (dist * 4000);
-                    targetCamRadius = Math.max(200, Math.min(targetCamRadius, 3000)); 
+                    // Allow pushing deep into the black hole
+                    targetCamRadius = 5000 - (dist * 7000);
+                    targetCamRadius = Math.max(-500, targetCamRadius); // Negative radius pushes past center
+                    aiMode.innerText = "QUANTUM WARP [PINCH]";
                 }
             } else {
-                // Return to auto-tour if no hands detected for 2 seconds
-                if (Date.now() - lastDetectionTime > 2000) {
+                if (Date.now() - lastDetectionTime > 1500) {
                     isManualControl = false;
-                    statusEl.innerText = "Searching...";
-                    modeEl.innerText = "Cinematic Auto";
-                    modeEl.style.color = "#00eeff";
-                    targetCamRadius = 1200; // Reset zoom slowly
+                    aiTrack.innerText = "SEARCHING";
+                    aiTrack.style.color = "#ff3366";
+                    aiMode.innerText = "AUTO-TOUR";
+                    targetCamRadius = Math.max(1500, camRadius); // Ensure we don't snap back wildly
                 }
             }
         }
 
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({
-            maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6
-        });
+        hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
         hands.onResults(onResults);
 
-        new Camera(videoElement, {
-            onFrame: async () => { await hands.send({ image: videoElement }); },
-            width: 480, height: 360
-        }).start();
+        // Initialization Flow
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('audio-prompt').style.display = 'none';
+            document.getElementById('loader').style.display = 'flex';
+            
+            initAudio(); // Start Web Audio
+
+            const cameraFeed = new Camera(videoElement, {
+                onFrame: async () => { await hands.send({ image: videoElement }); },
+                width: 320, height: 240
+            });
+            cameraFeed.start().then(() => {
+                setTimeout(() => {
+                    document.getElementById('loader').style.opacity = '0';
+                    setTimeout(() => document.getElementById('loader').style.display = 'none', 1500);
+                    animate(); // Kickoff render loop
+                }, 2000); // Artificial delay to let shaders compile
+            });
+        });
 
     </script>
 </body>
